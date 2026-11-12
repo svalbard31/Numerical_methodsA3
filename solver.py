@@ -1,38 +1,45 @@
-import scipy as sp 
-
-
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from scipy.integrate import solve_ivp
 
-# parameters (replace with your assignment's values)
-g, l = 9.81, 1.0
-d, A = 0.0, 0.0          # part 2: conservative case
-y0 = [np.pi*0.5, 0.0]          # [theta(0), omega(0)] placeholder
-t_span = (0.0, 20.0)
+g=9.81
+l=1
+y1_0=np.pi*0.5
+y2_0=4.0
+A=10
+d=1.0
+y = np.array([y1_0, y2_0])
 
-def rhs(t, y):
-    y1, y2 = y
-    return [y2, -d*y2 - (g/l)*np.sin(y1) + A*np.sin(t)]
+def theta(t,y):
+    y1 = y[0]
+    y2 = y[1]
+    return [y2, A*np.sin(t)-d*y2-g/l*np.sin(y1)]
 
-def energy(y1, y2):
-    return 0.5*l**2*y2**2 + g*l*(1 - np.cos(y1))
+def energy(t,y):
+    y1 = y[0]
+    y2 = y[1]
+    return 0.5*l**2*y2**2 + g*l*(1-np.cos(y1))
 
-t_eval = np.linspace(*t_span, 2001)
-tols = {
-    "reasonable (rtol=1e-6, atol=1e-9)":   dict(rtol=1e-6,  atol=1e-9),
-    "tight (rtol=1e-12, atol=1e-14)":      dict(rtol=1e-12, atol=1e-14),
-}
+time = np.linspace(0, 100, 2000)
+solution = solve_ivp(
+    theta, [0, 100], [y1_0, y2_0], t_eval=time,
+    rtol=1e-2, atol=1e-4, method='RK45', max_step=0.02
+)
+solution_strict = solve_ivp(
+    theta, [0, 100], [y1_0, y2_0], t_eval=time,
+    rtol=1e-11, atol=1e-13, method='RK45', max_step=0.02
+)
 
-fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-for label, tol in tols.items():
-    sol = solve_ivp(rhs, t_span, y0, method="RK45", t_eval=t_eval, **tol)
-    E = energy(*sol.y)
-    err = np.abs(E - E[0]) / E[0]
-    print(f"{label}: nfev={sol.nfev}, max rel. energy error={err.max():.2e}")
-    ax[0].plot(sol.t, sol.y[0], label=label)
-    ax[1].semilogy(sol.t, err + 1e-18, label=label)
+energy_change = abs(energy(solution.t[-1], solution.y[:,-1]) - energy(solution.t[0], solution.y[:,0]))/energy(solution.t[0], solution.y[:,0])
+#print(f"Energy change (loose): {energy_change:.2e}")
 
-ax[0].set(xlabel="t", ylabel="θ(t)"); ax[0].legend()
-ax[1].set(xlabel="t", ylabel="|E-E0|/E0"); ax[1].legend()
-plt.tight_layout(); plt.show()
+energy_change_strict = abs(energy(solution_strict.t[-1], solution_strict.y[:,-1]) - energy(solution_strict.t[0], solution_strict.y[:,0]))/energy(solution_strict.t[0], solution_strict.y[:,0])
+print(f"Energy change (strict): {energy_change_strict:.2e}")
+#plt.plot(solution.t, solution.y[0])
+#plt.plot(solution_strict.t, solution_strict.y[0], '--')
+plt.plot(solution_strict.y[0], solution_strict.y[1])
+#plt.plot(solution.y[0], solution.y[1], '--')
+plt.xlabel(r"Angle $\theta$ (rad)")
+plt.ylabel(r"Angular velocity $\dot{\theta}$ (rad/s)")
+plt.grid()
+plt.show()
